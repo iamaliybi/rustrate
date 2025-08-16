@@ -1,16 +1,26 @@
-use std::collections::HashMap;
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
+use std::error::Error;
+use crate::core::{HttpRequest};
+use crate::enums::HttpStatusCode;
 use crate::traits::HttpProtocol;
-use crate::utils::helper::http_date_string;
 
-pub struct HttpV10 {}
+pub struct HttpV10;
 
 impl HttpProtocol for HttpV10 {
-	async fn parse(params: HashMap<String, String>, stream: &mut TcpStream) {
-		let res = format!("HTTP/1.0 200 OK\r\nContent-Type: text/html\r\nContent-Length: 11\r\nConnection: close\r\nDate: {}\r\nServer: RustServer/1.0.0\r\n\r\nHello World", http_date_string());
-		
-		stream.write_all(res.as_bytes()).await.unwrap();
-		stream.shutdown().await.unwrap();
+	async fn handle(_: HttpRequest) -> Result<Vec<u8>, Box<dyn Error>> {
+		let res = Self::from_status_code(HttpStatusCode::NotFound).into_bytes();
+		Ok(res)
+	}
+}
+
+impl HttpV10 {
+	pub fn from_status_code(status: HttpStatusCode) -> String {
+		let body = status.reason();
+		format!(
+			"HTTP/1.0 {} {}\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\nServer: RustRate/1.0.0\r\n\r\n{}",
+			status.code(),
+			body,
+			body.len(),
+			body
+		)
 	}
 }

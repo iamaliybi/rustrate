@@ -1,46 +1,71 @@
+use std::error::Error;
+use std::net::{Ipv4Addr, SocketAddrV4};
+use std::sync::Arc;
+use tokio::net::TcpListener;
+use tokio_rustls::TlsAcceptor;
+use crate::core::RateLimiter;
+use crate::listener::{handle_http_connection, handle_tls_connection};
+use crate::utils::helper::load_tls_config;
+
 mod core;
 mod protocols;
 mod traits;
 mod utils;
 mod enums;
+mod listener;
 
-use std::net::{Ipv4Addr, SocketAddrV4};
-use tokio::net::TcpListener;
-use core::Request;
-
-const TIME_TO_LIVE: u32 = 128;
-const IP_V4_PORT: u16 = 8000;
+pub const MAX_HEADERS_SIZE: usize = 2048;
+pub const MAX_HEADERS_LENGTH: usize = 25;
+pub const MAX_BODY_SIZE: usize = 2_097_152; // 2MB
+pub const MAX_REQUEST_PER_MINUTE: u8 = 100;
 
 #[tokio::main]
-async fn main() {
-	let ipv4 = Ipv4Addr::new(127, 0, 0, 1);
-	let socket_v4 = SocketAddrV4::new(ipv4, IP_V4_PORT);
+async fn main() -> Result<(), Box<dyn Error>> {
+	let (http_listener, tls_listener) = create_listeners().await?;
+	let tls_config = load_tls_config()?;
+	let acceptor = TlsAcceptor::from(Arc::new(tls_config));
+	let acceptor = acceptor.clone();
 	
-	match TcpListener::bind(socket_v4).await {
-		Ok(listener) => {
-			if let Err(e) = listener.set_ttl(TIME_TO_LIVE) {
-				eprintln!("Failed to set ttl: {e}");
+	create_rate_limiter_cleaner();
+	
+	loop {
+		tokio::select! {
+			Ok((stream, addr)) = http_listener.accept() => {
+				tokio::spawn(async move {
+					if let Err(err) = handle_http_connection(stream, addr).await {
+						eprintln!("{}", err.to_string());
+					}
+				});
 			}
 			
-			loop {
-				match listener.accept().await {
-					Ok((stream, addr)) => {
-						tokio::task::spawn(async move {
-							if let Err(err) = Request::builder(stream, addr).await {
-								eprintln!("Err: {}", err.to_string());
+			Ok((stream, addr)) = tls_listener.accept() => {
+				match acceptor.accept(stream).await {
+					Ok(tls_stream) => {
+						tokio::spawn(async move {
+							if let Err(err) = handle_tls_connection(tls_stream, addr).await {
+								eprintln!("{}", err.to_string());
 							}
 						});
 					}
 					
-					Err(e) => {
-						eprintln!("{}", e.to_string());
+					Err(err) => {
+						eprintln!("{}", err.to_string());
 					}
 				}
 			}
 		}
-		
-		Err(e) => {
-			panic!("{}", e.to_string());
-		}
 	}
+}
+
+async fn create_listeners() -> Result<(TcpListener, TcpListener), Box<dyn Error>> {
+	let ipv4 = Ipv4Addr::new(127, 0, 0, 1);
+	
+	let http_listener = TcpListener::bind(SocketAddrV4::new(ipv4, 80)).await?;
+	let tls_listener = TcpListener::bind(SocketAddrV4::new(ipv4, 443)).await?;
+	
+	Ok((http_listener, tls_listener))
+}
+
+fn create_rate_limiter_cleaner() {
+	tokio::spawn(RateLimiter::cleanup());
 }

@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use tokio::net::TcpStream;
+use std::error::Error;
+use crate::core::{HttpRequest};
 
 pub trait HttpProtocol {
-	async fn parse(params: HashMap<String, String>, stream: &mut TcpStream);
+	async fn handle(request: HttpRequest) -> Result<Vec<u8>, Box<dyn Error>>;
 }

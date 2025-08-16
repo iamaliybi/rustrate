@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum HttpMethod {
 	Get,
 	Post,
@@ -8,19 +9,21 @@ pub enum HttpMethod {
 	Unknown(()),
 }
 
-impl HttpMethod {
-	pub fn as_str(&self) -> &'static str {
-		match self {
-			HttpMethod::Get => "GET",
-			HttpMethod::Post => "POST",
-			HttpMethod::Put => "PUT",
-			HttpMethod::Patch => "PATCH",
-			HttpMethod::Delete => "DELETE",
-			HttpMethod::Head => "HEAD",
-			HttpMethod::Unknown(_) => "UNKNOWN",
+impl PartialEq for HttpMethod {
+	fn eq(&self, other: &Self) -> bool {
+		match (self, other) {
+			(HttpMethod::Get, HttpMethod::Get) => true,
+			(HttpMethod::Post, HttpMethod::Post) => true,
+			(HttpMethod::Put, HttpMethod::Put) => true,
+			(HttpMethod::Patch, HttpMethod::Patch) => true,
+			(HttpMethod::Delete, HttpMethod::Delete) => true,
+			(HttpMethod::Head, HttpMethod::Head) => true,
+			_ => false,
 		}
 	}
-	
+}
+
+impl HttpMethod {
 	pub fn from_str(version: &str) -> Self {
 		match version.trim().to_ascii_uppercase().as_str() {
 			"GET" => HttpMethod::Get,
@@ -34,6 +37,10 @@ impl HttpMethod {
 	}
 	
 	pub fn is_supported(&self) -> bool {
-		matches!(self, HttpMethod::Get)
+		matches!(self, HttpMethod::Get | HttpMethod::Post | HttpMethod::Put | HttpMethod::Patch | HttpMethod::Delete | HttpMethod::Head)
+	}
+	
+	pub fn has_body(&self) -> bool {
+		matches!(self, HttpMethod::Post | HttpMethod::Put | HttpMethod::Patch)
 	}
 }

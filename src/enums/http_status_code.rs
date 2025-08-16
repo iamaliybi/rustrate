@@ -6,6 +6,8 @@ pub enum HttpStatusCode {
 	Unauthorized,
 	Forbidden,
 	NotFound,
+	Timeout,
+	TooManyRequests,
 	InternalServerError,
 	NotImplemented,
 	BadGateway,
@@ -23,6 +25,8 @@ impl HttpStatusCode {
 			HttpStatusCode::Unauthorized => 401,
 			HttpStatusCode::Forbidden => 403,
 			HttpStatusCode::NotFound => 404,
+			HttpStatusCode::Timeout => 408,
+			HttpStatusCode::TooManyRequests => 429,
 			HttpStatusCode::InternalServerError => 500,
 			HttpStatusCode::NotImplemented => 501,
 			HttpStatusCode::BadGateway => 502,
@@ -31,7 +35,7 @@ impl HttpStatusCode {
 		}
 	}
 	
-	pub fn reason_phrase(&self) -> &'static str {
+	pub fn reason(&self) -> &'static str {
 		match self {
 			HttpStatusCode::Ok => "OK",
 			HttpStatusCode::Created => "Created",
@@ -40,6 +44,8 @@ impl HttpStatusCode {
 			HttpStatusCode::Unauthorized => "Unauthorized",
 			HttpStatusCode::Forbidden => "Forbidden",
 			HttpStatusCode::NotFound => "Not Found",
+			HttpStatusCode::Timeout => "Request Timeout",
+			HttpStatusCode::TooManyRequests => "Too Many Requests",
 			HttpStatusCode::InternalServerError => "Internal Server Error",
 			HttpStatusCode::NotImplemented => "Not Implemented",
 			HttpStatusCode::BadGateway => "Bad Gateway",
